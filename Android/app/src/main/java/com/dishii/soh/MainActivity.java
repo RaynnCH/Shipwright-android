@@ -958,6 +958,11 @@ public class MainActivity extends SDLActivity{
                 .putBoolean("touchRightStickFloating", floatingRight).apply();
         runOnUiThread(this::applyTouchControlsVisibility);
     }
+    public void setTouchSwipeLookFromNative(boolean enabled, float sensitivity, boolean invertY) {
+        preferences.edit().putBoolean("touchSwipeLook", enabled).putFloat("touchSwipeLookSens", sensitivity)
+                .putBoolean("touchSwipeLookInvertY", invertY).apply();
+        runOnUiThread(this::applyTouchControlsVisibility);
+    }
     public void editIntegratedTouchFromNative() {
         runOnUiThread(() -> {
             if (preferences.getInt("integratedTouchMode", 0) == 0 ||
@@ -1209,7 +1214,9 @@ public class MainActivity extends SDLActivity{
                     preferences.getBoolean(PREF_TOUCH_LEFT_STICK_FLOATING, true),
                     preferences.getBoolean("touchRightStickFloating", true),
                     preferences.getFloat("integratedTouchScale", 1),
-                    preferences.getFloat("integratedTouchOpacity", .55f), transparentSticks);
+                    preferences.getFloat("integratedTouchOpacity", .55f), transparentSticks,
+                    preferences.getBoolean("touchSwipeLook", true), preferences.getFloat("touchSwipeLookSens", 1f),
+                    preferences.getBoolean("touchSwipeLookInvertY", false));
             if (integratedMode != 0) {
                 overlayView.setVisibility(View.GONE);
                 DisableTouchArea();

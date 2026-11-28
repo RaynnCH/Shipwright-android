@@ -66,6 +66,7 @@ void Init() {
 }
 RegisterShipInitFunc init(Init);
 }
+extern "C" int RemakeControls_IsEnabled(void);
 extern "C" int TouchHud_GetState() { return state; }
 extern "C" int TouchHud_GetBindings(int style, int32_t* bindings, int count) {
     if (!bindings || count != TouchHud::BindingCount) return 0;
@@ -89,6 +90,8 @@ extern "C" void TouchHud_SetButton(uint32_t mask, int down) {
     if (mask == 0x20000) {
         if (down && !(state.load() & 128)) pendingNavi = true;
         mask = 8; // Preserve the Fairy icon, but retain normal C-up look/note behavior.
+        // Modern Item Switching turns C-up into "use focused item" and moves Navi to D-pad up.
+        if (RemakeControls_IsEnabled() && !(state.load() & 128)) mask = 0x800;
     }
     if (down) { held.fetch_or(mask); pending.fetch_or(mask); }
     else held.fetch_and(~static_cast<uint32_t>(mask));

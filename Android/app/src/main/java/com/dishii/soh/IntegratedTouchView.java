@@ -28,6 +28,26 @@ final class IntegratedTouchView extends View {
     private ColorMatrixColorFilter dpadOpacityFilter;
     private final ArrayList<Control> controls = new ArrayList<>();
     private final SparseArray<Control> fingers = new SparseArray<>();
+    private boolean swipeLook = true, swipeInvertY;
+    private float swipeSens = 1f;
+    private int swipePointer = -1;
+    private float swipeLastX, swipeLastY, swipePendX, swipePendY;
+    private final Runnable swipeTick = new Runnable() {
+        @Override public void run() {
+            if (swipePointer < 0) return;
+            float range = 24f * getResources().getDisplayMetrics().density;
+            float sx = Math.max(-1f, Math.min(1f, swipePendX / range * swipeSens));
+            float sy = Math.max(-1f, Math.min(1f, swipePendY / range * swipeSens));
+            swipePendX = 0; swipePendY = 0;
+            host.integratedLook(sx, swipeInvertY ? -sy : sy, true);
+            postOnAnimation(this);
+        }
+    };
+    private void endSwipe() {
+        if (swipePointer < 0) return;
+        swipePointer = -1; removeCallbacks(swipeTick);
+        host.integratedLook(0, 0, false);
+    }
     private final RectF[] editorButtons = {new RectF(), new RectF(), new RectF(), new RectF()};
     private final float[] anchors = new float[30]; // B, three C items, four D-pad items, Navi/C-up, A action
     private TouchLayout placement = new TouchLayout(), saved;
@@ -71,7 +91,8 @@ final class IntegratedTouchView extends View {
         setVisibility(GONE);
     }
 
-    void configure(int nextMode, boolean enabled, boolean floatingLeft, boolean floatingRight, float scale, float opacity, boolean transparentSticks) {
+    void configure(int nextMode, boolean enabled, boolean floatingLeft, boolean floatingRight, float scale, float opacity, boolean transparentSticks,
+                   boolean swipeLook, float swipeSens, boolean swipeInvertY) {
         if (mode != nextMode) {
             cancelInputs(); editing = false; mode = nextMode;
             placement = TouchLayout.decode(preferences.getString("preset" + mode, ""));
@@ -82,6 +103,9 @@ final class IntegratedTouchView extends View {
         this.floatingLeft = floatingLeft;
         this.floatingRight = floatingRight;
         this.transparentSticks = transparentSticks;
+        this.swipeLook = swipeLook;
+        this.swipeSens = Math.max(.25f, Math.min(3f, swipeSens));
+        this.swipeInvertY = swipeInvertY;
         this.scale = Math.max(.75f, Math.min(1.5f, scale));
         this.opacity = Math.max(.15f, Math.min(1, opacity));
         setVisibility(this.enabled ? VISIBLE : GONE);
@@ -251,7 +275,7 @@ final class IntegratedTouchView extends View {
     }
     private void cancelInputs() {
         for (int i=0;i<fingers.size();i++) release(fingers.valueAt(i));
-        fingers.clear(); host.integratedTouchReset();
+        fingers.clear(); endSwipe(); host.integratedTouchReset();
     }
     private void move(Control c, float x, float y) {
         float radius = Math.min(c.bounds.width(),c.bounds.height())*.34f;
@@ -477,7 +501,13 @@ final class IntegratedTouchView extends View {
             if(chosen==null && (state&1)==0)for(Control c:controls)
                 if(placement.isVisible(c.key)&&c.stick>=0&&isFloating(c)&&c.pointer<0&&
                         TouchLayout.floatingStickContains(c.stick,x/getWidth(),y/getHeight())){chosen=c;break;}
-            if(chosen==null)return fingers.size()>0;
+            if(chosen==null){
+                if(swipeLook&&(state&1)==0&&swipePointer<0){
+                    swipePointer=id;swipeLastX=x;swipeLastY=y;swipePendX=0;swipePendY=0;
+                    postOnAnimation(swipeTick);return true;
+                }
+                return fingers.size()>0;
+            }
             if(chosen.key.equals("eye")){cancelInputs();shown=!shown;layoutControls();return true;}
             if(chosen.key.equals("settings")){cancelInputs();host.nativeGamepadBackPressed();return true;}
             chosen.pointer=id;fingers.put(id,chosen);
@@ -485,6 +515,14 @@ final class IntegratedTouchView extends View {
             else if((state&1)!=0)host.integratedMenuButton(chosen.mask,true);
             else host.integratedTouchButton(chosen.mask,true);
             invalidate();return true;
+        }
+        if(swipePointer>=0){
+            if(action==MotionEvent.ACTION_MOVE){
+                int si=e.findPointerIndex(swipePointer);
+                if(si>=0){swipePendX+=e.getX(si)-swipeLastX;swipePendY+=e.getY(si)-swipeLastY;swipeLastX=e.getX(si);swipeLastY=e.getY(si);}
+            }else if((action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP)&&id==swipePointer){
+                endSwipe();return true;
+            }
         }
         if(action==MotionEvent.ACTION_MOVE){for(int i=0;i<e.getPointerCount();i++){Control c=fingers.get(e.getPointerId(i));if(c!=null&&c.stick>=0)move(c,e.getX(i),e.getY(i));}invalidate();return fingers.size()>0;}
         if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){Control c=fingers.get(id);if(c!=null){host.integratedMenuButton(c.mask,false);release(c);fingers.remove(id);invalidate();return true;}}

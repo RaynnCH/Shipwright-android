@@ -141,6 +141,12 @@ static void SetMobileIntegratedTouch() {
         static_cast<jboolean>(CVarGetInteger(CVAR_SETTING("TouchControls.TransparentSticks"), 0) != 0),
         static_cast<jboolean>(CVarGetInteger(CVAR_SETTING("TouchControls.FloatingRightStick"), 1) != 0));
     if (env->ExceptionCheck()) env->ExceptionClear();
+    jmethodID swipeMethod = env->GetMethodID(type, "setTouchSwipeLookFromNative", "(ZFZ)V");
+    if (swipeMethod) env->CallVoidMethod(activity, swipeMethod,
+        static_cast<jboolean>(CVarGetInteger(CVAR_SETTING("TouchControls.SwipeLook"), 1) != 0),
+        CVarGetFloat(CVAR_SETTING("TouchControls.SwipeLookSensitivity"), 1.0f),
+        static_cast<jboolean>(CVarGetInteger(CVAR_SETTING("TouchControls.SwipeLookInvertY"), 0) != 0));
+    if (env->ExceptionCheck()) env->ExceptionClear();
     env->DeleteLocalRef(type); env->DeleteLocalRef(activity);
 #else
     SOHiOS_ConfigureIntegratedTouch(CVarGetInteger(CVAR_SETTING("TouchControls.Style"),0),
@@ -866,6 +872,23 @@ void SohMenu::AddMenuSettings() {
         .Options(CheckboxOptions().DefaultValue(true).Tooltip(
             "Sets the right camera stick's origin where you touch inside its area. "
             "When disabled, its origin is fixed. Independent of Floating Left Stick."));
+    AddWidget(path, "Swipe To Look", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("TouchControls.SwipeLook"))
+        .RaceDisable(false)
+        .Callback([](WidgetInfo&) { SetMobileIntegratedTouch(); })
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip(
+            "Drag a finger on an empty part of the screen to turn the camera, without using the right stick. "
+            "Requires Free Look (or the GameCube stick camera) to be enabled."));
+    AddWidget(path, "Swipe Look Sensitivity", WIDGET_CVAR_SLIDER_FLOAT)
+        .CVar(CVAR_SETTING("TouchControls.SwipeLookSensitivity"))
+        .RaceDisable(false)
+        .Callback([](WidgetInfo&) { SetMobileIntegratedTouch(); })
+        .Options(FloatSliderOptions().Min(0.25f).Max(3.0f).DefaultValue(1.0f).Step(0.05f).Format("%.2fx"));
+    AddWidget(path, "Swipe Look Invert Y", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("TouchControls.SwipeLookInvertY"))
+        .RaceDisable(false)
+        .Callback([](WidgetInfo&) { SetMobileIntegratedTouch(); })
+        .Options(CheckboxOptions().Tooltip("Inverts the vertical direction of Swipe To Look."));
     AddWidget(path, "Disable Touch Controls", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_SETTING("TouchControls.Disabled"))
         .RaceDisable(false)

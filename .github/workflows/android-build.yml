@@ -21,9 +21,6 @@ jobs:
           - name: armv64
             abi: arm64-v8a
             artifact: soh-android-armv64-apk
-          - name: armv7
-            abi: armeabi-v7a
-            artifact: soh-android-armv7-apk
     runs-on: ubuntu-24.04
     container:
       image: djvdw7f2ro/android-builder-soh:v1.0.4
